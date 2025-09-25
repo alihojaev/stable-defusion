@@ -29,7 +29,7 @@ ENV HF_HOME=/workspace/huggingface
 RUN mkdir -p ${HF_HOME}
 
 # Pre-download the Stable Diffusion 2 Inpainting model to the cache (non-fatal)
-RUN python3 - <<'PY'
+RUN python3 - <<'PY' || true
 from diffusers import StableDiffusionInpaintPipeline
 import torch, os
 
