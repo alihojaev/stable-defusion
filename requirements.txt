@@ -8,5 +8,6 @@ fastapi
 uvicorn[standard]
 pillow
 opencv-python
+runpod
 
 
