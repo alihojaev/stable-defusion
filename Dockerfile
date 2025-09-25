@@ -4,7 +4,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     HF_HUB_ENABLE_HF_TRANSFER=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    PIP_PREFER_BINARY=1
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -21,26 +22,30 @@ COPY requirements.txt /workspace/requirements.txt
 RUN python3 -m pip install --upgrade pip \
     && python3 -m pip install --no-cache-dir -r /workspace/requirements.txt
 
-# Hugging Face cache directory
+# Hugging Face cache directory and optional auth token for gated models
+ARG HF_TOKEN=""
+ENV HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
 ENV HF_HOME=/workspace/huggingface
 RUN mkdir -p ${HF_HOME}
 
-# Pre-download the Stable Diffusion 2 Inpainting model to the cache
+# Pre-download the Stable Diffusion 2 Inpainting model to the cache (non-fatal)
 RUN python3 - <<'PY'
 from diffusers import StableDiffusionInpaintPipeline
-import torch
-import os
+import torch, os
 
 model_id = "stabilityai/stable-diffusion-2-inpainting"
-dtype = torch.float16  # download weights compatible with half precision; CPU will still read them
+dtype = torch.float16
 cache_dir = os.environ.get("HF_HOME")
 
-_ = StableDiffusionInpaintPipeline.from_pretrained(
-    model_id,
-    torch_dtype=dtype,
-    cache_dir=cache_dir,
-)
-print("Model predownload completed.")
+try:
+    StableDiffusionInpaintPipeline.from_pretrained(
+        model_id,
+        torch_dtype=dtype,
+        cache_dir=cache_dir,
+    )
+    print("Model predownload completed.")
+except Exception as e:
+    print(f"WARNING: model predownload skipped: {e}")
 PY
 
 # Copy application files
