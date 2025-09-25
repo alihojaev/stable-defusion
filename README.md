@@ -86,6 +86,10 @@ curl http://localhost:7860/health
 
 - Model is pre-downloaded during the Docker build to speed up startup.
 - If running without GPU, the service will use CPU with float32 automatically (slower).
+- Build speed tips:
+  - Docker cache: keep `requirements.txt` stable to reuse layers.
+  - Pre-download HF model during build (already configured).
+  - Use `--pull` only when you need latest base image.
  - Serverless input format (Run request body):
    ```json
    {

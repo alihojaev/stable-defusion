@@ -1,6 +1,10 @@
 FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu20.04
 
-ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    HF_HUB_ENABLE_HF_TRANSFER=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -42,6 +46,7 @@ PY
 # Copy application files
 COPY app.py /workspace/app.py
 COPY start.sh /workspace/start.sh
+COPY rp_handler.py /workspace/rp_handler.py
 RUN chmod +x /workspace/start.sh
 
 EXPOSE 7860
