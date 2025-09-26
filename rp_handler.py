@@ -6,7 +6,7 @@ from typing import Any, Dict, Tuple
 import runpod
 from PIL import Image
 import torch
-from diffusers import StableDiffusionInpaintPipeline
+# Lazy import inside get_pipeline
 
 
 MODEL_ID = "stabilityai/stable-diffusion-2-inpainting"
@@ -49,12 +49,25 @@ def _ensure_mask(mask_img: Image.Image, size: Tuple[int, int]) -> Image.Image:
 
 
 device, dtype = _get_device_and_dtype()
-pipe = StableDiffusionInpaintPipeline.from_pretrained(
-    MODEL_ID,
-    torch_dtype=dtype,
-    cache_dir=HF_CACHE_DIR,
-)
-pipe = pipe.to(device)
+_pipe = None
+
+
+def get_pipeline():
+    global _pipe
+    if _pipe is None:
+        from diffusers import StableDiffusionInpaintPipeline  # imported lazily
+        pipe_local = StableDiffusionInpaintPipeline.from_pretrained(
+            MODEL_ID,
+            torch_dtype=dtype,
+            cache_dir=HF_CACHE_DIR,
+        )
+        pipe_local = pipe_local.to(device)
+        try:
+            pipe_local.enable_attention_slicing()
+        except Exception:
+            pass
+        _pipe = pipe_local
+    return _pipe
 
 
 def handler(event: Dict[str, Any]) -> Dict[str, Any]:
@@ -84,6 +97,7 @@ def handler(event: Dict[str, Any]) -> Dict[str, Any]:
         mask_pil = _ensure_mask(mask_pil, image_pil.size)
 
         use_autocast = device == "cuda"
+        pipe = get_pipeline()
         with torch.autocast(device_type="cuda", enabled=use_autocast):
             out = pipe(
                 prompt=prompt,

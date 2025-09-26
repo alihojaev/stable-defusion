@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 from PIL import Image
 import torch
-from diffusers import StableDiffusionInpaintPipeline
+# Lazy import of diffusers inside get_pipeline to avoid heavy import at startup
 
 
 app = FastAPI(title="Stable Diffusion 2 Inpainting API")
@@ -24,12 +24,26 @@ def _get_device_and_dtype() -> Tuple[str, torch.dtype]:
 
 
 device, dtype = _get_device_and_dtype()
-pipe = StableDiffusionInpaintPipeline.from_pretrained(
-    MODEL_ID,
-    torch_dtype=dtype,
-    cache_dir=HF_CACHE_DIR,
-)
-pipe = pipe.to(device)
+_pipe = None
+
+
+def get_pipeline():
+    global _pipe
+    if _pipe is None:
+        from diffusers import StableDiffusionInpaintPipeline  # imported lazily
+        pipe_local = StableDiffusionInpaintPipeline.from_pretrained(
+            MODEL_ID,
+            torch_dtype=dtype,
+            cache_dir=HF_CACHE_DIR,
+        )
+        pipe_local = pipe_local.to(device)
+        # Memory optimizations
+        try:
+            pipe_local.enable_attention_slicing()
+        except Exception:
+            pass
+        _pipe = pipe_local
+    return _pipe
 
 
 def _strip_data_url_prefix(b64: str) -> str:
@@ -122,6 +136,7 @@ async def inpaint(request: Request) -> JSONResponse:
     # Inference
     try:
         use_autocast = device == "cuda"
+        pipe = get_pipeline()
         with torch.autocast(device_type="cuda", enabled=use_autocast):
             result = pipe(
                 prompt=prompt,
