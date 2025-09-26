@@ -11,6 +11,7 @@ import torch
 
 MODEL_ID = "stabilityai/stable-diffusion-2-inpainting"
 HF_CACHE_DIR = os.getenv("HF_HOME")
+ENV_DISABLE_SAFETY = os.getenv("DISABLE_SAFETY_CHECKER", "0") == "1"
 
 
 def _get_device_and_dtype() -> Tuple[str, torch.dtype]:
@@ -66,6 +67,11 @@ def get_pipeline():
             pipe_local.enable_attention_slicing()
         except Exception:
             pass
+        if ENV_DISABLE_SAFETY:
+            try:
+                pipe_local.safety_checker = None
+            except Exception:
+                pass
         _pipe = pipe_local
     return _pipe
 
@@ -81,6 +87,7 @@ def handler(event: Dict[str, Any]) -> Dict[str, Any]:
         prompt = payload.get("prompt")
         image_field = payload.get("image")
         mask_field = payload.get("mask")
+        enable_safety_checker = payload.get("enable_safety_checker")
 
         if not prompt:
             return {"error": "Missing 'prompt'"}
@@ -98,12 +105,38 @@ def handler(event: Dict[str, Any]) -> Dict[str, Any]:
 
         use_autocast = device == "cuda"
         pipe = get_pipeline()
-        with torch.autocast(device_type="cuda", enabled=use_autocast):
-            out = pipe(
-                prompt=prompt,
-                image=image_pil,
-                mask_image=mask_pil,
-            ).images[0]
+        if enable_safety_checker is not None and not enable_safety_checker:
+            try:
+                pipe.safety_checker = None
+            except Exception:
+                pass
+        try:
+            with torch.autocast(device_type="cuda", enabled=use_autocast):
+                out = pipe(
+                    prompt=prompt,
+                    image=image_pil,
+                    mask_image=mask_pil,
+                ).images[0]
+        except Exception as e:
+            msg = str(e)
+            if "no kernel image is available for execution on the device" in msg.lower() or "cuda error" in msg.lower():
+                # Fallback to CPU
+                try:
+                    pipe = None
+                    torch.cuda.empty_cache()
+                except Exception:
+                    pass
+                global _pipe, device, dtype
+                _pipe = None
+                device, dtype = "cpu", torch.float32
+                pipe = get_pipeline()
+                out = pipe(
+                    prompt=prompt,
+                    image=image_pil,
+                    mask_image=mask_pil,
+                ).images[0]
+            else:
+                raise
 
         buf = io.BytesIO()
         out.save(buf, format="PNG")
