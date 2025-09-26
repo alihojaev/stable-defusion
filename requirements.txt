@@ -5,10 +5,9 @@ diffusers>=0.25.0,<0.34.0
 transformers
 accelerate
 safetensors
-fastapi
-uvicorn[standard]
 pillow
 opencv-python
 runpod
+hf_transfer
 
 
