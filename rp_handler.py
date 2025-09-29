@@ -115,6 +115,7 @@ def handler(event: Dict[str, Any]) -> Dict[str, Any]:
     Expects event[input] with keys: prompt (str), image (base64), mask (base64).
     Returns: { "image": "<base64 PNG>" } or { "error": "..." }.
     """
+    global _pipe, device, dtype
     try:
         payload = (event or {}).get("input", {})
         prompt = payload.get("prompt")
@@ -134,8 +135,7 @@ def handler(event: Dict[str, Any]) -> Dict[str, Any]:
             prompt = "clean background, remove text"
         if not image_field:
             return {"error": "Missing 'image'"}
-        if not mask_field:
-            return {"error": "Missing 'mask'"}
+        # mask is optional when auto_mask is enabled
 
         image_data = _b64_to_bytes(image_field) if isinstance(image_field, str) else image_field
         mask_data = _b64_to_bytes(mask_field) if isinstance(mask_field, str) else mask_field
