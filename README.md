@@ -1,6 +1,6 @@
 # Stable Diffusion 2 Inpainting on Runpod
 
-This repository provides a FastAPI service to run `stabilityai/stable-diffusion-2-inpainting` with an /inpaint endpoint suitable for deployment on Runpod.
+This repository provides a FastAPI service to run `stabilityai/stable-diffusion-2-inpainting` with endpoints for inpainting and text removal, suitable for deployment on Runpod.
 
 ## Project Structure
 
@@ -31,6 +31,11 @@ Multipart fields:
 - `prompt`: text prompt
 - `image`: input image (file or base64 string)
 - `mask`: mask image (file or base64 string) — white (255) areas will be inpainted
+- Optional params:
+  - `negative_prompt` (string)
+  - `num_inference_steps` (int, default 30)
+  - `guidance_scale` (float, default 7.5)
+  - `seed` (int)
 
 JSON fields:
 - `prompt`: string
@@ -48,7 +53,10 @@ Response JSON:
 curl -X POST http://localhost:7860/inpaint \
   -F "prompt=Remove the text" \
   -F "image=@input.png" \
-  -F "mask=@mask.png"
+  -F "mask=@mask.png" \
+  -F "num_inference_steps=30" \
+  -F "guidance_scale=7.5" \
+  -F "seed=1234"
 ```
 
 ### Example Request (JSON)
@@ -59,8 +67,38 @@ curl -X POST http://localhost:7860/inpaint \
   -d '{
     "prompt": "Remove the text",
     "image": "data:image/png;base64,....",
-    "mask": "data:image/png;base64,...."
+    "mask": "data:image/png;base64,....",
+    "negative_prompt": "text, watermark, letters, characters, logo",
+    "num_inference_steps": 30,
+    "guidance_scale": 7.5,
+    "seed": 1234
   }'
+### POST /remove_text
+
+Auto-masking helper to remove text and restore background.
+
+Inputs (multipart or JSON):
+- `image`: input image
+- Optional `mask`: if provided, used as-is; otherwise auto-generated
+- Optional params:
+  - `prompt` (default: `clean background, remove text`)
+  - `negative_prompt` (default: `text, watermark, letters, characters, logo`)
+  - `num_inference_steps` (int, default 30)
+  - `guidance_scale` (float, default 7.5)
+  - `seed` (int)
+  - `auto_mask` (bool, default true)
+  - `min_text_area` (int, default 100)
+  - `dilate_kernel` (int, default 3)
+
+Example (multipart):
+
+```bash
+curl -X POST http://localhost:7860/remove_text \
+  -F "image=@input.png" \
+  -F "auto_mask=true" \
+  -F "min_text_area=100" \
+  -F "dilate_kernel=3"
+```
 ```
 
 ## Health Check
@@ -96,7 +134,14 @@ curl http://localhost:7860/health
      "input": {
        "prompt": "Remove the text",
        "image": "<base64 PNG/JPEG>",
-       "mask": "<base64 PNG/JPEG>"
+       "mask": "<base64 PNG/JPEG>",
+       "negative_prompt": "text, watermark, letters, characters, logo",
+       "num_inference_steps": 30,
+       "guidance_scale": 7.5,
+       "seed": 1234,
+       "auto_mask": true,
+       "min_text_area": 100,
+       "dilate_kernel": 3
      }
    }
    ```
