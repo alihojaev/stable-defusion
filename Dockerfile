@@ -24,32 +24,16 @@ RUN python3 -m pip install --upgrade pip \
 
 # Hugging Face cache directory and optional auth token for gated models
 ARG HF_TOKEN=""
-ARG SKIP_PREDOWNLOAD="0"
 ENV HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
 ENV HF_HOME=/workspace/huggingface
 RUN mkdir -p ${HF_HOME}
 
-# Pre-download the model unless explicitly skipped (non-fatal)
-RUN if [ "$SKIP_PREDOWNLOAD" != "1" ]; then \
-  python3 - <<'PY' || true
-from diffusers import StableDiffusionInpaintPipeline
-import torch, os
-
-model_id = "stabilityai/stable-diffusion-2-inpainting"
-dtype = torch.float16
-cache_dir = os.environ.get("HF_HOME")
-
-try:
-    StableDiffusionInpaintPipeline.from_pretrained(
-        model_id,
-        torch_dtype=dtype,
-        cache_dir=cache_dir,
-    )
-    print("Model predownload completed.")
-except Exception as e:
-    print(f"WARNING: model predownload skipped: {e}")
-PY
-; fi
+# Pre-download the Stable Diffusion 2 Inpainting model to the cache (non-fatal)
+RUN python3 -c "import os, torch; from diffusers import StableDiffusionInpaintPipeline as P;\
+model_id='stabilityai/stable-diffusion-2-inpainting'; dtype=torch.float16; cache_dir=os.environ.get('HF_HOME');\
+print('Pre-downloading model...');\
+P.from_pretrained(model_id, torch_dtype=dtype, cache_dir=cache_dir);\
+print('Model predownload completed.')" || true
 
 # Copy application files
 COPY app.py /workspace/app.py
