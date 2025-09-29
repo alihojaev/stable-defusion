@@ -184,7 +184,6 @@ def handler(event: Dict[str, Any]) -> Dict[str, Any]:
                     torch.cuda.empty_cache()
                 except Exception:
                     pass
-                global _pipe, device, dtype
                 _pipe = None
                 device, dtype = "cpu", torch.float32
                 pipe = get_pipeline()
