@@ -24,12 +24,14 @@ RUN python3 -m pip install --upgrade pip \
 
 # Hugging Face cache directory and optional auth token for gated models
 ARG HF_TOKEN=""
+ARG SKIP_PREDOWNLOAD="0"
 ENV HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
 ENV HF_HOME=/workspace/huggingface
 RUN mkdir -p ${HF_HOME}
 
-# Pre-download the Stable Diffusion 2 Inpainting model to the cache (non-fatal)
-RUN python3 - <<'PY' || true
+# Pre-download the model unless explicitly skipped (non-fatal)
+RUN if [ "$SKIP_PREDOWNLOAD" != "1" ]; then \
+  python3 - <<'PY' || true
 from diffusers import StableDiffusionInpaintPipeline
 import torch, os
 
@@ -47,6 +49,7 @@ try:
 except Exception as e:
     print(f"WARNING: model predownload skipped: {e}")
 PY
+; fi
 
 # Copy application files
 COPY app.py /workspace/app.py
