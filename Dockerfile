@@ -13,6 +13,8 @@ RUN apt-get update \
         python3-pip \
         git \
         wget \
+        libgl1 \
+        libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
